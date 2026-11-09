@@ -159,6 +159,9 @@ cextern ChatMuted
 cextern MapHash
 cextern recording_file
 cextern recording_mode
+cextern NativeReplay_Bootstrap
+cextern NativeReplay_ModeValue
+cextern Replay_Native_Setup
 cextern recording_filename
 cextern Replay_Load_Header
 cextern ReduceSovietMaxAircrafts
@@ -491,6 +494,10 @@ Initialize_Spawn:
     JMP .exit
 
 .first_run:
+
+    call NativeReplay_Bootstrap
+    test eax, eax
+    jz .exit_error
 
     ; initialize FileClass
     MOV EDX, str_spawn_ini
@@ -1007,6 +1014,8 @@ Initialize_Spawn:
     
 
     ; initialize network
+    cmp dword [NativeReplay_ModeValue], 2
+    je .nonet
     CMP BYTE [game + Session.type], 4
     JNE .nonet
 
@@ -1100,6 +1109,11 @@ Initialize_Spawn:
 %endif
 
     
+    call Replay_Native_Setup
+    test eax, eax
+    js .record_fail
+    jnz .native_replay_ready
+
     INI_Get_Int str_settings, str_recording_mode, 0
     mov byte[recording_mode], al
     
@@ -1151,6 +1165,8 @@ Initialize_Spawn:
     call Replay_Load_Header
     test eax, eax
     jz .record_fail
+
+.playback_header_loaded:
     
     xor eax, eax
     mov edx, -3
@@ -1158,6 +1174,11 @@ Initialize_Spawn:
     mov eax, 0x00668248 ; ThemeClass Theme
     call 0x0056C020 ; ThemeClass::Queue_Song(ThemeType)
     
+    jmp .record_end
+
+.native_replay_ready:
+    test byte [recording_mode], 2
+    jnz .playback_header_loaded
     jmp .record_end
     
 .record_fail:

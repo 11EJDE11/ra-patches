@@ -4,6 +4,14 @@
 %include "macros/patch.inc"
 %include "macros/datatypes.inc"
 cextern Replay_Load_Header
+%ifdef REPLAY_NATIVE
+cextern NativeReplay_Bootstrap
+cextern Replay_Native_Setup
+cextern NativeReplay_ModeValue
+@LJMP 0x6F2C19, Replay_Native_Bootstrap
+@LJMP 0x6F37C0, Replay_Native_Mode
+@LJMP 0x6F36CD, Replay_Native_Network
+%endif
 
 @SET 0x006F381B, db 2              ; playback, not attract
 @CLEAR 0x006F3809, 0x90, 0x006F3813 ; postpone header until final options
@@ -14,6 +22,34 @@ cextern Replay_Load_Header
 @LJMP 0x006F387C, Replay_Open_Failed
 
 [section .text]
+%ifdef REPLAY_NATIVE
+Replay_Native_Network:
+    cmp dword [NativeReplay_ModeValue], 2
+    je 0x6F3789
+    cmp byte [0x67F2B4], 4
+    jmp 0x6F36D4
+
+Replay_Native_Bootstrap:
+    pushad
+    call NativeReplay_Bootstrap
+    test eax, eax
+    popad
+    jz 0x6F3D34
+    mov edx, 0x6FC199
+    jmp 0x6F2C1E
+
+Replay_Native_Mode:
+    call Replay_Native_Setup
+    test eax, eax
+    js Replay_Open_Failed
+    jz .legacy
+    test byte [0x680151], 2
+    jnz 0x6F3866
+    jmp 0x6F3883
+.legacy:
+    mov ecx, 0
+    jmp 0x6F37C5
+%endif
 Replay_Header_Loaded:
     test eax, eax
     jz Replay_Open_Failed

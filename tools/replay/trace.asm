@@ -2,7 +2,10 @@
 ; Computing the CRC normally draws RNG. Save/restore it and GameCRC, so this
 ; probe does not change simulation state. Trace files close with the process.
 %include "macros/patch.inc"
+%include "macros/extern.inc"
+cglobal Trace_Frame
 
+%ifndef REPLAY_NATIVE
 hack 0x00528EDC, 0x00528EE6
     pushfd
     pushad
@@ -13,6 +16,7 @@ hack 0x00528EDC, 0x00528EE6
     mov ebp, esp
     test byte [0x00680151], 2
     jmp hackend
+%endif
 
 [section .data]
 trace_handle: dd 0

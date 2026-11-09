@@ -4,6 +4,7 @@ Usage: python test_hooks.py path/to/ra95-replay.dat
 Requires unicorn. This tests actual emitted x86, not a reimplementation of it.
 """
 import argparse
+import json
 from pathlib import Path
 import struct
 import unittest
@@ -323,7 +324,8 @@ class HookTests(unittest.TestCase):
 
     def test_optional_trace_preserves_rng_and_crc(self):
         e = Engine()
-        if bytes(e.uc.mem_read(0x528EDC, 1)) != b"\xe9":
+        manifest = IMAGE.with_suffix(IMAGE.suffix + ".json")
+        if (manifest.exists() and not json.loads(manifest.read_text()).get("trace")) or bytes(e.uc.mem_read(0x528EDC, 1)) != b"\xe9":
             self.skipTest("Diagnostic tracing disabled in this binary")
         e.u32(0x6678E8, 12345)
         e.u32(0x68785C, 0xABCD)
@@ -346,6 +348,23 @@ class HookTests(unittest.TestCase):
         self.assertEqual(e.u32(0x6678E8), 12345)
         self.assertEqual(e.u32(0x68785C), 0xABCD)
         self.assertEqual(writes, [struct.pack("<III", 42, 12345, 0x12345678)])
+
+    def test_native_playback_skips_socket_initialization(self):
+        e = Engine()
+        code = bytes(e.uc.mem_read(0x6F36CD, 5))
+        if code[0] != 0xE9:
+            self.skipTest("Native container integration disabled")
+        target = 0x6F36D2 + struct.unpack_from("<i", code, 1)[0]
+        probe = bytes(e.uc.mem_read(target, 7))
+        self.assertEqual(probe[:2], b"\x83\x3d")
+        mode = struct.unpack_from("<I", probe, 2)[0]
+        e.u32(mode, 2)
+        e.uc.mem_write(0x67F2B4, b"\x04")
+        e.run(0x6F36CD, 0x6F3789, 0x6F36D4)
+        self.assertEqual(e.destination, 0x6F3789)
+        e.u32(mode, 1)
+        e.run(0x6F36CD, 0x6F3789, 0x6F36D4)
+        self.assertEqual(e.destination, 0x6F36D4)
 
 
 if __name__ == "__main__":

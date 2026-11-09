@@ -37,6 +37,9 @@ OBJS            ?= \
 	src/print_dolist.o \
 	src/print_dolist_func.o \
 	src/replay.o \
+	src/replay-native.o \
+	src/replay-native-hooks.o \
+	src/vendor/miniz/miniz.o \
 	src/auto-resign-func.o \
 	src/buildingtypeclass_width_crash_fix.o \
 	src/out_of_sync-func.o \
@@ -164,6 +167,9 @@ include ./generic.mk
 #CFLAGS          += -mpush-args -mno-accumulate-outgoing-args -mno-stack-arg-probe -O0
 CFLAGS          += -mno-sse -mno-sse2
 WFLAGS          += -Ires/ -I../shared/res/
+
+# These modules use private cdecl memory helpers, not Watcom's game CRT.
+src/replay-native.o src/vendor/miniz/miniz.o: CFLAGS += -ffreestanding -fno-builtin -fno-strict-aliasing -fno-stack-protector -fno-asynchronous-unwind-tables -mno-stack-arg-probe -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_ZLIB_APIS -DMINIZ_NO_MALLOC -Dmemcpy=nr_memcpy -Dmemset=nr_memset -Dmemmove=nr_memmove -Dmemcmp=nr_memcmp -Dstrlen=nr_strlen -include src/replay-native.h
 
 ifdef WWDEBUG
     CFLAGS += -D WWDEBUG
